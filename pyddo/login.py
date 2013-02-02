@@ -4,6 +4,7 @@
 from http.client import HTTPConnection, HTTPSConnection
 from urllib.parse import urlparse, quote_plus
 from re import sub
+from time import sleep
 import xml.etree.ElementTree as ElementTree
 import socket
 import ssl
@@ -90,6 +91,7 @@ class LoginResponse:
         self._ticket = 0
         self._nowserving = 0
         self._context = None
+        self._glsticket = None
         
     def _parse_xml(self, xml):
         sub = xml.find('Body/LoginAccountResponse/LoginAccountResult')
@@ -105,7 +107,7 @@ class LoginResponse:
         self._loginwith = None
         # Check for valid subscription
         for s in self._subscriptions:
-            if s.game_name == self._datacenter.name:
+            if s.game_name == self._datacenter.game_name:
                 self._loginwith = s
         if self._loginwith is None:
             raise LoginError('No subscription for the specified game found.')
@@ -165,6 +167,10 @@ class LoginResponse:
                 sleep(1)
     
     @property
+    def valid(self):
+        return not (self._glsticket is None)
+
+    @property
     def wait_required(self):
         if self._ticket == 0 or self._nowserving == 0:
             raise LoginError('Join a queue first, before asking if you have to wait.')
@@ -181,6 +187,14 @@ class LoginResponse:
     @property
     def subscription(self):
         return self._loginwith
+
+    @property
+    def world(self):
+        return self._world
+
+    @property
+    def datacenter(self):
+        return self._datacenter
     
 class World:
     def __init__(self, datacenter):
@@ -334,7 +348,7 @@ class DataCenter:
             self._worlds.append(world)
             
     @property
-    def name(self):
+    def game_name(self):
         return self._name
             
     @property
@@ -350,7 +364,7 @@ class DataCenter:
         return self._worlds
         
     def __str__(self):
-        return self.name
+        return self.game_name
         
 def query_datacenters(game = "DDO", datacenterurl = "http://gls.ddo.com/GLS.DataCenterServer/Service.asmx"):
     url = urlparse(datacenterurl)
